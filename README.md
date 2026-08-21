@@ -30,6 +30,11 @@ before applying.
   UTC.
 - **No Docker socket** — `Docker not available` in the log is expected. Mapping it would make the
   container host-root-equivalent, and only the dashboard's built-in datastore toggles need it.
+- **`SSRF_ALLOWED_HOSTS` is exposed but empty** — under _Advanced_. OpenWA blocks plugins from calling
+  private addresses, so a plugin pointed at another container on your LAN (Jellyseerr, Sonarr, Home
+  Assistant) fails with `Blocked internal address` until you list that host. Comma-separated, written
+  exactly as it appears in the plugin's own URL setting — `192.168.1.50`, not `http://192.168.1.50:5055`.
+  Prefer it over `WEBHOOK_SSRF_PROTECT=false`, which switches the protection off everywhere.
 
 ## Tested on
 
