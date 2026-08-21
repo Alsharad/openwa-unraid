@@ -1,0 +1,10 @@
+# Editor / OS cruft
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/
+
+# Agent scratch
+.agent/
+.claude/

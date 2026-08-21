@@ -1,0 +1,80 @@
+<?xml version="1.0"?>
+<Container version="2">
+  <Name>OpenWA</Name>
+  <Repository>ghcr.io/rmyndharis/openwa:latest</Repository>
+  <Registry>https://github.com/rmyndharis/OpenWA/pkgs/container/openwa</Registry>
+  <Network>bridge</Network>
+  <MyIP/>
+  <MyMAC/>
+  <Shell>bash</Shell>
+  <Privileged>false</Privileged>
+  <Support>https://github.com/rmyndharis/OpenWA/issues</Support>
+  <Project>https://github.com/rmyndharis/OpenWA</Project>
+  <ReadMe>https://github.com/rmyndharis/OpenWA#readme</ReadMe>
+  <Overview>&#13;
+    OpenWA is a free, open-source WhatsApp API Gateway: a REST API plus a bundled React dashboard for&#13;
+    running one or more WhatsApp sessions, sending and receiving messages and media, and fanning events&#13;
+    out to webhooks.&#13;
+&#13;
+    This template runs the single-container configuration: SQLite database, local media storage, no&#13;
+    Redis. Everything persistent (session auth, databases, media, plugins) lives in the single /app/data&#13;
+    mapping, so back that folder up and you can rebuild the container freely.&#13;
+&#13;
+    FIRST BOOT: no API key is configured by default, so OpenWA generates a random admin key and writes&#13;
+    it into the data folder. Retrieve it with:&#13;
+    cat /mnt/user/appdata/openwa/.api-key&#13;
+    Then open the WebUI and sign in with that key.&#13;
+&#13;
+    IMPORTANT - READ BEFORE LINKING A NUMBER: OpenWA talks to WhatsApp through reverse-engineered&#13;
+    clients (whatsapp-web.js / Baileys), NOT Meta's official Cloud API. There is always a non-zero risk&#13;
+    of the account being restricted or banned. Use a dedicated number you can afford to lose, never&#13;
+    your primary personal or business number. Not suitable for regulated or compliance-bound&#13;
+    deployments.&#13;
+&#13;
+    NO PUID / PGID: unlike most Unraid containers, OpenWA has no PUID/PGID/UMASK support. The image&#13;
+    starts as root only long enough to chown /app/data, then drops to a fixed internal user via gosu.&#13;
+    Files in the appdata folder therefore end up owned by that image-assigned system UID rather than&#13;
+    nobody:users (99:100), and that is normal - do not run Docker Safe New Permissions against it.&#13;
+&#13;
+    MEMORY: the default whatsapp-web.js engine runs a full headless Chromium per session at roughly&#13;
+    300-500 MB each. The 2 GB limit in Extra Parameters comfortably fits 3-4 sessions; raise it for&#13;
+    more, or switch ENGINE_TYPE to baileys (30-80 MB per session, but a higher ban-risk profile).&#13;
+  </Overview>
+  <Category>Network:Messenger Tools:Utilities Productivity:</Category>
+  <WebUI>http://[IP]:[PORT:2785]/</WebUI>
+  <TemplateURL/>
+  <Icon>https://raw.githubusercontent.com/rmyndharis/OpenWA/main/docs/logo/openwa_logo.png</Icon>
+  <ExtraParams>--read-only --tmpfs /tmp --security-opt no-new-privileges:true --cap-drop=ALL --cap-add=CHOWN --cap-add=DAC_OVERRIDE --cap-add=FOWNER --cap-add=SETGID --cap-add=SETUID --memory=2g --stop-timeout=45 --health-start-period=60s</ExtraParams>
+  <PostArgs/>
+  <CPUset/>
+  <DateInstalled/>
+  <DonateText/>
+  <DonateLink/>
+  <Requires/>
+  <Config Name="WebUI" Target="2785" Default="2785" Mode="tcp" Description="REST API and the bundled dashboard share this one port. Swagger, when enabled, is at /api/docs." Type="Port" Display="always" Required="true" Mask="false">2785</Config>
+  <Config Name="Appdata" Target="/app/data" Default="/mnt/user/appdata/openwa" Mode="rw" Description="Holds EVERYTHING persistent: WhatsApp session auth, the SQLite databases, media, installed plugins and the generated first-boot API key (.api-key). Losing this loses your linked sessions and API keys. Keep it on the cache pool - SQLite and the Chromium session profiles do constant small writes that are painfully slow on the array. The container chowns this folder to its own internal user on every start; that is expected, and you should not run Docker Safe New Permissions against it." Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/openwa</Config>
+  <Config Name="Plain-HTTP dashboard fix" Target="CSP_UPGRADE_INSECURE_REQUESTS" Default="false" Mode="" Description="LEAVE AS false when reaching the dashboard over plain http on your LAN. With it true (the production default) the browser upgrades the dashboard's own scripts to https, the non-TLS server cannot answer, and you get a BLANK WHITE PAGE. Set it true only once OpenWA sits behind a TLS-terminating reverse proxy such as SWAG or Nginx Proxy Manager." Type="Variable" Display="always" Required="true" Mask="false">false</Config>
+  <Config Name="Auto-start sessions on boot" Target="AUTO_START_SESSIONS" Default="true" Mode="" Description="Re-connect previously authenticated WhatsApp sessions when the container starts. Without this, sessions sit at disconnected after an Unraid reboot or a container update until you start them by hand in the dashboard." Type="Variable" Display="always" Required="false" Mask="false">true</Config>
+  <Config Name="WhatsApp engine" Target="ENGINE_TYPE" Default="whatsapp-web.js" Mode="" Description="whatsapp-web.js drives a real headless Chromium - lower ban risk, ~300-500 MB RAM per session. baileys speaks the multi-device protocol directly - ~30-80 MB per session, but easier for WhatsApp to fingerprint and therefore a higher ban risk. Prefer whatsapp-web.js unless you need session density." Type="Variable" Display="always" Required="false" Mask="false">whatsapp-web.js</Config>
+  <Config Name="Master API key" Target="API_MASTER_KEY" Default="" Mode="" Description="OPTIONAL. Leave EMPTY and OpenWA generates a random admin key on first boot, written to /mnt/user/appdata/openwa/.api-key - read it from there to sign in. If you do set one it must be at least 32 characters and not a known placeholder, or the container refuses to start in production mode. Generate one with: openssl rand -base64 32" Type="Variable" Display="always" Required="false" Mask="true"/>
+  <Config Name="Stable node ID" Target="NODE_ID" Default="unraid-openwa" Mode="" Description="Must stay STABLE across restarts. The application default is the container hostname, which Unraid regenerates whenever the container is recreated - the new container then counts as a new node and has to wait out the previous identity's session lease before re-adopting sessions." Type="Variable" Display="advanced" Required="false" Mask="false">unraid-openwa</Config>
+  <Config Name="Log level" Target="LOG_LEVEL" Default="info" Mode="" Description="error, warn, info or debug." Type="Variable" Display="advanced" Required="false" Mask="false">info</Config>
+  <Config Name="Enable Swagger API docs" Target="ENABLE_SWAGGER" Default="false" Mode="" Description="Serves interactive API docs at /api/docs. OFF by default under NODE_ENV=production, and deliberately so: the docs mount is NOT behind the API-key guard, so anyone who can reach the port sees the full schema and the exact running version. Set true only on a trusted LAN." Type="Variable" Display="advanced" Required="false" Mask="false">false</Config>
+  <Config Name="Database type" Target="DATABASE_TYPE" Default="sqlite" Mode="" Description="sqlite (zero-config, stored in the appdata folder) or postgres. Switching to postgres additionally requires DATABASE_HOST, DATABASE_PORT, DATABASE_NAME, DATABASE_USERNAME and DATABASE_PASSWORD - add them as extra variables." Type="Variable" Display="advanced" Required="false" Mask="false">sqlite</Config>
+  <Config Name="Database auto-sync schema" Target="DATABASE_SYNCHRONIZE" Default="false" Mode="" Description="LEAVE false. With false, OpenWA applies its versioned migrations at boot - the correct path for an install you will upgrade over time. The first migration is a guarded baseline that creates the whole schema, so a brand-new database works fine. Setting true lets TypeORM reshape tables from the entity definitions instead, which can drop columns." Type="Variable" Display="advanced" Required="false" Mask="false">false</Config>
+  <Config Name="Storage backend" Target="STORAGE_TYPE" Default="local" Mode="" Description="local (filesystem, inside the appdata folder) or s3 for an S3/MinIO backup and migration target." Type="Variable" Display="advanced" Required="false" Mask="false">local</Config>
+  <Config Name="Media path" Target="STORAGE_LOCAL_PATH" Default="/app/data/media" Mode="" Description="Container-internal path for locally stored media. Keep it under /app/data so it lands in your mapped folder." Type="Variable" Display="advanced" Required="false" Mask="false">/app/data/media</Config>
+  <Config Name="Session data path" Target="SESSION_DATA_PATH" Default="/app/data/sessions" Mode="" Description="Container-internal path for WhatsApp session auth and Chromium profiles. Keep it under /app/data or your linked sessions will not survive a container recreate." Type="Variable" Display="advanced" Required="false" Mask="false">/app/data/sessions</Config>
+  <Config Name="Plugins directory" Target="PLUGINS_DIR" Default="/app/data/plugins" Mode="" Description="Where installed plugins land. Must be on the writable appdata mapping - the container root filesystem is read-only." Type="Variable" Display="advanced" Required="false" Mask="false">/app/data/plugins</Config>
+  <Config Name="Chromium headless" Target="PUPPETEER_HEADLESS" Default="true" Mode="" Description="Keep true. Only relevant to the whatsapp-web.js engine." Type="Variable" Display="advanced" Required="false" Mask="false">true</Config>
+  <Config Name="Chromium launch args" Target="PUPPETEER_ARGS" Default="--no-sandbox,--disable-setuid-sandbox,--disable-dev-shm-usage,--disable-gpu" Mode="" Description="Comma-separated Chromium flags for the whatsapp-web.js engine. The defaults are what a container without a Chromium sandbox and without a large /dev/shm needs; do not remove them unless you know why." Type="Variable" Display="advanced" Required="false" Mask="false">--no-sandbox,--disable-setuid-sandbox,--disable-dev-shm-usage,--disable-gpu</Config>
+  <Config Name="whatsapp-web.js auth timeout (ms)" Target="WWEBJS_AUTH_TIMEOUT_MS" Default="" Mode="" Description="Optional. Raises the first-boot initialisation wait (default 30000). Increase to 60000-120000 if the QR code times out before WhatsApp Web finishes loading on a busy or low-powered server." Type="Variable" Display="advanced" Required="false" Mask="false"/>
+  <Config Name="Trusted proxies" Target="TRUSTED_PROXIES" Default="" Mode="" Description="Optional. Set when running behind SWAG / Nginx Proxy Manager so rate limiting and audit logs see the real client IP instead of the proxy's, for example 172.18.0.0/16." Type="Variable" Display="advanced" Required="false" Mask="false"/>
+  <Config Name="Public base URL" Target="BASE_URL" Default="" Mode="" Description="Optional. The externally reachable URL of this instance, for example https://openwa.example.com - used when building absolute links." Type="Variable" Display="advanced" Required="false" Mask="false"/>
+  <Config Name="NODE_ENV" Target="NODE_ENV" Default="production" Mode="" Description="Do not change. production enables the security defaults and the production boot checks." Type="Variable" Display="advanced-hide" Required="true" Mask="false">production</Config>
+  <Config Name="PORT" Target="PORT" Default="2785" Mode="" Description="Container-internal listen port. Do not change - remap the host side on the WebUI port entry instead." Type="Variable" Display="advanced-hide" Required="true" Mask="false">2785</Config>
+  <Config Name="HOME" Target="HOME" Default="/tmp" Mode="" Description="Do not change. The container root filesystem is read-only, so HOME must point at the writable tmpfs." Type="Variable" Display="advanced-hide" Required="true" Mask="false">/tmp</Config>
+  <Config Name="XDG_CONFIG_HOME" Target="XDG_CONFIG_HOME" Default="/tmp/.config" Mode="" Description="Do not change. Chromium resolves its home from the passwd entry and ignores HOME; without a writable config dir on the tmpfs it hard-crashes at launch on the read-only root filesystem." Type="Variable" Display="advanced-hide" Required="true" Mask="false">/tmp/.config</Config>
+  <Config Name="XDG_CACHE_HOME" Target="XDG_CACHE_HOME" Default="/tmp/.cache" Mode="" Description="Do not change. See XDG_CONFIG_HOME." Type="Variable" Display="advanced-hide" Required="true" Mask="false">/tmp/.cache</Config>
+  <TailscaleStateDir/>
+</Container>
